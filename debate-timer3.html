@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>客服灵活处理权限是否应该前置？！ - 现场计时系统</title>
+    <style>
+        :root {
+            --bg-color: #0b1120;
+            --panel-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-blue: #38bdf8;
+            --aff-color: #ef4444; /* 正方红 */
+            --neg-color: #3b82f6; /* 反方蓝 */
+            --warning-color: #f59e0b;
+            --danger-color: #dc2626;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 顶部区域 */
+        header {
+            text-align: center;
+            padding: 2vh 0;
+            background-color: rgba(15, 23, 42, 0.8);
+            border-bottom: 1px solid #334155;
+        }
+
+        h1 {
+            font-size: 2.2vw;
+            font-weight: 600;
+            letter-spacing: 2px;
+            margin-bottom: 1.5vh;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .stage-selector {
+            display: flex;
+            justify-content: center;
+            gap: 1vw;
+        }
+
+        .stage-btn {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid #475569;
+            padding: 0.8vh 1.5vw;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1vw;
+            transition: all 0.3s;
+        }
+
+        .stage-btn:hover {
+            border-color: var(--text-main);
+            color: var(--text-main);
+        }
+
+        .stage-btn.active {
+            background: var(--accent-blue);
+            color: #000;
+            border-color: var(--accent-blue);
+            font-weight: bold;
+        }
+
+        /* 主体计时区 */
+        main {
+            display: flex;
+            flex: 1;
+            padding: 2vw;
+            gap: 2vw;
+            position: relative;
+        }
+
+        .side-panel {
+            flex: 1;
+            background-color: var(--panel-bg);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .side-panel.aff { border-top: 6px solid var(--aff-color); }
+        .side-panel.neg { border-top: 6px solid var(--neg-color); }
+
+        .side-title {
+            font-size: 3vw;
+            font-weight: bold;
+            margin-bottom: 1vh;
+            letter-spacing: 4px;
+        }
+
+        .side-subtitle {
+            font-size: 1.2vw; 
+            color: var(--text-muted);
+            margin-bottom: 4vh;
+            background: rgba(0,0,0,0.2);
+            padding: 0.5vh 1.5vw;
+            border-radius: 20px;
+        }
+
+        .timer-display {
+            font-size: 14vw;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+            margin-bottom: 5vh;
+            transition: color 0.3s;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .controls {
+            display: flex;
+            gap: 1vw;
+        }
+
+        button {
+            border: none;
+            border-radius: 6px;
+            padding: 1.5vh 2.5vw;
+            font-size: 1.2vw;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+
+        button:active { transform: scale(0.95); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .btn-start { background-color: #10b981; color: white; }
+        .btn-pause { background-color: #f59e0b; color: white; }
+        .btn-reset { background-color: #64748b; color: white; }
+
+        /* 自由辩论/对辩中央控制区 */
+        .center-controls {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .btn-switch {
+            background-color: var(--accent-blue);
+            color: #000;
+            font-size: 2vw;
+            font-weight: bold;
+            padding: 2.5vh 4vw;
+            border-radius: 50px;
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+            animation: pulse 2s infinite;
+        }
+
+        .switch-hint {
+            margin-top: 1.5vh;
+            font-size: 1vw;
+            color: var(--text-muted);
+            background: rgba(15, 23, 42, 0.9);
+            padding: 0.4rem 1rem;
+            border-radius: 4px;
+            border: 1px solid #334155;
+        }
+
+        /* 开发者签名 */
+        .developer-credit {
+            position: fixed;
+            bottom: 2vh;
+            right: 2vw;
+            font-size: 0.9vw;
+            color: var(--text-muted);
+            opacity: 0.4;
+            letter-spacing: 1px;
+            z-index: 100;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        /* 动画与状态提示 */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(56, 189, 248, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+        }
+
+        @keyframes flashRed {
+            0%, 100% { background-color: var(--panel-bg); }
+            50% { background-color: rgba(220, 38, 38, 0.5); }
+        }
+
+        .warning { color: var(--warning-color); animation: blink 1s infinite; }
+        .danger { color: var(--danger-color); }
+        .flash-screen { animation: flashRed 0.5s infinite; }
+        .active-panel { 
+            box-shadow: 0 0 40px rgba(255,255,255,0.1); 
+            border: 2px solid rgba(255,255,255,0.15); 
+            transform: scale(1.01);
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>客服灵活处理权限是否应该前置？！</h1>
+        <div class="stage-selector" id="stageSelector">
+            </div>
+    </header>
+
+    <main>
+        <div class="side-panel aff" id="panel-aff">
+            <div class="side-title">正 方</div>
+            <div class="side-subtitle">灵活权益应该升级主管后使用</div>
+            <div class="timer-display" id="time-aff">03:00</div>
+            <div class="controls" id="controls-aff">
+                <button class="btn-start" onclick="startTimer('aff')">开始</button>
+                <button class="btn-pause" onclick="pauseTimer('aff')">暂停</button>
+                <button class="btn-reset" onclick="resetTimer('aff')">重置</button>
+            </div>
+        </div>
+
+        <div class="center-controls" id="centerControls">
+            <button class="btn-switch" onclick="switchChessClock()">交替发言 ⇆</button>
+            <div class="switch-hint">快捷键：空格键 (Space)</div>
+        </div>
+
+        <div class="side-panel neg" id="panel-neg">
+            <div class="side-title">反 方</div>
+            <div class="side-subtitle">灵活权益应该给一线直接使用</div>
+            <div class="timer-display" id="time-neg">03:00</div>
+            <div class="controls" id="controls-neg">
+                <button class="btn-start" onclick="startTimer('neg')">开始</button>
+                <button class="btn-pause" onclick="pauseTimer('neg')">暂停</button>
+                <button class="btn-reset" onclick="resetTimer('neg')">重置</button>
+            </div>
+        </div>
+    </main>
+
+    <div class="developer-credit">Designed by @Fsewen</div>
+
+    <script>
+        // 赛制环节配置（单位：秒）
+        const stages = [
+            { name: "立论陈词", affTime: 180, negTime: 180, isFree: false },
+            { name: "攻辩-质询", affTime: 180, negTime: 180, isFree: false },
+            { name: "攻辩-对辩", affTime: 180, negTime: 180, isFree: true },
+            { name: "自由辩论", affTime: 360, negTime: 360, isFree: true },
+            { name: "总结陈词", affTime: 180, negTime: 180, isFree: false }
+        ];
+
+        let currentStageIdx = 0;
+        
+        const state = {
+            aff: { time: 0, interval: null, active: false },
+            neg: { time: 0, interval: null, active: false }
+        };
+
+        let audioCtx = null;
+
+        // 初始化
+        function init() {
+            renderStageSelector();
+            loadStage(0);
+            
+            // 全局快捷键监听
+            document.addEventListener('keydown', (e) => {
+                // 空格键：切换发言（仅在象棋钟模式可用）
+                if (e.code === 'Space' && stages[currentStageIdx].isFree) {
+                    e.preventDefault(); 
+                    switchChessClock();
+                }
+                // T键：隐藏的彩排测试快捷键 (将时间设为35秒)
+                if (e.code === 'KeyT') {
+                    e.preventDefault();
+                    quickTest();
+                }
+            });
+        }
+
+        // 渲染顶部环节切换按钮
+        function renderStageSelector() {
+            const container = document.getElementById('stageSelector');
+            container.innerHTML = stages.map((stage, idx) => `
+                <button class="stage-btn ${idx === currentStageIdx ? 'active' : ''}" 
+                        onclick="loadStage(${idx})">
+                    ${stage.name}
+                </button>
+            `).join('');
+        }
+
+        // 切换环节并重置状态
+        function loadStage(idx) {
+            pauseTimer('aff');
+            pauseTimer('neg');
+            
+            currentStageIdx = idx;
+            renderStageSelector();
+
+            const stage = stages[idx];
+            state.aff.time = stage.affTime;
+            state.neg.time = stage.negTime;
+
+            // 如果是对辩或自由辩论，显示中央控制器，隐藏单边控制按钮
+            const isFree = stage.isFree;
+            document.getElementById('centerControls').style.display = isFree ? 'flex' : 'none';
+            document.getElementById('controls-aff').style.visibility = isFree ? 'hidden' : 'visible';
+            document.getElementById('controls-neg').style.visibility = isFree ? 'hidden' : 'visible';
+            
+            updateDisplay('aff');
+            updateDisplay('neg');
+            updatePanelGlow();
+            clearFlash('aff');
+            clearFlash('neg');
+        }
+
+        // 时间格式化 MM:SS
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        // 更新 UI 显示及声音/视觉告警
+        function updateDisplay(side) {
+            const displayObj = document.getElementById(`time-${side}`);
+            const panelObj = document.getElementById(`panel-${side}`);
+            const time = state[side].time;
+
+            displayObj.innerText = formatTime(time);
+            displayObj.classList.remove('warning', 'danger');
+
+            if (time === 0) {
+                displayObj.classList.add('danger');
+                if (state[side].active) {
+                    panelObj.classList.add('flash-screen');
+                    playDing(2); // 结束时响两声
+                    pauseTimer(side);
+                }
+            } else if (time <= 30) {
+                displayObj.classList.add('warning');
+                // 仅在刚好到达30秒且正在计时的情况下触发一声预警
+                if (time === 30 && state[side].active) {
+                    playDing(1);
+                }
+            }
+        }
+
+        // 激活面板的视觉反馈（微微发光并放大）
+        function updatePanelGlow() {
+            document.getElementById('panel-aff').classList.toggle('active-panel', state.aff.active);
+            document.getElementById('panel-neg').classList.toggle('active-panel', state.neg.active);
+        }
+
+        function clearFlash(side) {
+            document.getElementById(`panel-${side}`).classList.remove('flash-screen');
+        }
+
+        // 开始计时
+        function startTimer(side) {
+            initAudio(); // 解决浏览器自动播放策略限制
+            if (state[side].time <= 0 || state[side].active) return;
+            
+            state[side].active = true;
+            state[side].interval = setInterval(() => {
+                if (state[side].time > 0) {
+                    state[side].time--;
+                    updateDisplay(side);
+                }
+            }, 1000);
+            updatePanelGlow();
+        }
+
+        // 暂停计时
+        function pauseTimer(side) {
+            state[side].active = false;
+            clearInterval(state[side].interval);
+            updatePanelGlow();
+        }
+
+        // 重置当前面板的时间
+        function resetTimer(side) {
+            pauseTimer(side);
+            const stage = stages[currentStageIdx];
+            state[side].time = side === 'aff' ? stage.affTime : stage.negTime;
+            updateDisplay(side);
+            clearFlash(side);
+        }
+
+        // 隐藏的彩排功能：将时间设为35秒
+        function quickTest() {
+            pauseTimer('aff');
+            pauseTimer('neg');
+            state.aff.time = 35;
+            state.neg.time = 35;
+            updateDisplay('aff');
+            updateDisplay('neg');
+            clearFlash('aff');
+            clearFlash('neg');
+        }
+
+        // 自由辩论/对辩：一键交替（象棋钟）
+        function switchChessClock() {
+            initAudio();
+            const affActive = state.aff.active;
+            const negActive = state.neg.active;
+
+            if (!affActive && !negActive) {
+                // 都未启动时，默认优先启动正方（若正方没时间则启反方）
+                if (state.aff.time > 0) startTimer('aff');
+                else if (state.neg.time > 0) startTimer('neg');
+            } else if (affActive) {
+                pauseTimer('aff');
+                if (state.neg.time > 0) startTimer('neg');
+            } else if (negActive) {
+                pauseTimer('neg');
+                if (state.aff.time > 0) startTimer('aff');
+            }
+        }
+
+        // 使用 Web Audio API 生成电子表滴答声（方案3）
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playDing(count = 1) {
+            if (!audioCtx) return;
+            
+            const now = audioCtx.currentTime;
+            // 循环调度音频，每次间隔 0.6 秒
+            for (let i = 0; i < count; i++) {
+                const startTime = now + (i * 0.6);
+                
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(800, startTime);
+                gainNode.gain.setValueAtTime(0.3, startTime); // 压低音量防止破音
+                // 瞬间切断，制造滴答/蜂鸣的机械感 (持续0.3秒)
+                gainNode.gain.setValueAtTime(0, startTime + 0.3);
+                
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                osc.start(startTime);
+                osc.stop(startTime + 0.3);
+            }
+        }
+
+        // 启动应用
+        window.onload = init;
+    </script>
+</body>
+</html>
